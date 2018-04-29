@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<oor:component-data 
+xmlns:oor="http://openoffice.org/2001/registry" 
+xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+oor:name="Addons" 
+oor:package="org.openoffice.Office">
+	<node oor:name="AddonUI">
+		<node oor:name="OfficeMenuBarMerging">
+			<node oor:name="mytools.frame" oor:op="replace">
+				<node oor:name="ContextSpecificRecentFileList" oor:op="replace">
+					<prop oor:name="MergePoint">
+						<value>.uno:PickList\.uno:RecentFileList</value>
+					</prop>
+					<prop oor:name="MergeCommand">
+						<value>AddAfter</value>
+					</prop>
+					<prop oor:name="MergeFallback">
+						<value>AddPath</value>
+					</prop>
+					<prop oor:name="MergeContext">
+						<value>com.sun.star.text.TextDocument,com.sun.star.sheet.SpreadsheetDocument,com.sun.star.presentation.PresentationDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.WebDocument,com.sun.star.formula.FormulaProperties</value>
+					</prop>
+					<node oor:name="MenuItems">
+						<node oor:name="a11_show1" oor:op="replace">
+							<prop oor:name="Title">
+								<value xml:lang="en-US">~Recent Documents 2</value>
+								<value xml:lang="ja-JP">最近使用したドキュメント２</value>
+							</prop>
+							<prop oor:name="URL" oor:type="xs:string">
+								<value>mytools.frame:ContextSpecificRecentFileList</value>
+							</prop>
+							<prop oor:name="Target">
+								<value>_self</value>
+							</prop>
+							<prop oor:name="Context">
+								<value>com.sun.star.text.TextDocument,com.sun.star.sheet.SpreadsheetDocument,com.sun.star.presentation.PresentationDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.WebDocument,com.sun.star.formula.FormulaProperties</value>
+							</prop>
+						</node>
+					</node>
+				</node>
+			</node>
+		</node>
+	</node>
+</oor:component-data>
+
