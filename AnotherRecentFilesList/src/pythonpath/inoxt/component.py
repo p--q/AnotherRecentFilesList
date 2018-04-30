@@ -1,6 +1,6 @@
 #!/opt/libreoffice5.4/program/python
 # -*- coding: utf-8 -*-
-import uno
+# import uno
 import unohelper
 
 from os import sep
@@ -11,8 +11,8 @@ if sep == '\\':
 from com.sun.star.beans import PropertyValue  # Struct
 from com.sun.star.util import XStringWidth
 from com.sun.star.awt import XMenuListener
-from com.sun.star.frame import XPopupMenuController, XDispatchProvider, XStatusListener, XDispatch
-from com.sun.star.lang import XInitialization, XServiceInfo
+from com.sun.star.frame import XPopupMenuController, XStatusListener
+from com.sun.star.lang import XServiceInfo
 from com.sun.star.container import XContainerListener
 from com.sun.star.util import XStringAbbreviation
 from com.sun.star.util import URL  # Struct
@@ -21,7 +21,7 @@ PROTOCOL = 'mytools.frame:'
 # IMPL_NAME = 'mytools.frame.ContextSpecificRecentFileList'
 # SERVICE_NAME = 'com.sun.star.frame.PopupMenuController'
 
-Node_History = '/org.openoffice.Office.Histories/Histories'
+# Node_History = '/org.openoffice.Office.Histories/Histories'
 Node_Common_History = '/org.openoffice.Office.Common/History'
 
 Mod_StartModule = 'com.sun.star.frame.StartModule'
@@ -47,35 +47,33 @@ def create(ctx, *args, imple_name, service_name):
 	if SERVICE_NAME is None:
 		SERVICE_NAME = service_name
 	return AnotherRecentFilesPopupMenuController(ctx, *args)
-class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController, XDispatchProvider, XMenuListener, XContainerListener, XServiceInfo):
-	def __init__(self, ctx, *propertyvalues):  # argsはPropertyValueのタプル。
-		self.ctx = ctx
-		self.frame = None # frame of the document
-		self.modname = "" # module name
-		self.command = ""
-		self.list_changed = False
-		self.file_list = []
-		self.menu = None
-		self.history_list = None
-		if propertyvalues:
-			self.initialize(propertyvalues)
-		if self.frame:
-			self.frame.addEventListener(self)
-	# XInitialization
-	def initialize(self, propertyvalues):
-		for propertyvalue in propertyvalues:
+class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController, XServiceInfo, XStatusListener):  # import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
+	def __init__(self, ctx, *args):  # argsはPropertyValueのタプルを受け取る。
+		self.frame = None
+		moduleidentifier = "" 	
+		for propertyvalue in args:
 			name, value = propertyvalue.Name, propertyvalue.Value
 			if name=='Frame':
 				self.frame = value
 			elif name=='ModuleIdentifier':
 				if value.startswith('com.sun.star.sdb'):
-					self.modname = Mod_Database
+					moduleidentifier = Mod_Database
 				elif value=='com.sun.star.chart2.ChartDocument':
-					self.modname = 'com.sun.star.SpreadsheetDocument'
+					moduleidentifier = 'com.sun.star.SpreadsheetDocument'
 				else:
-					self.modname = value
-			elif name=='CommandURL':
-				self.command = value
+					moduleidentifier = value	
+		smgr = ctx.getServiceManager()  # サービスマネジャーの取得。
+		self.configreader = createConfigReader(ctx, smgr)  # 読み込み専用の関数を取得。
+		self.filterlist = getFilterList(self.configreader, moduleidentifier)		
+		self.uriabbreviation = smgr.createInstanceWithContext('com.sun.star.util.UriAbbreviation', ctx)					
+
+
+					
+					
+		self.ctx = ctx
+		self.list_changed = False
+		self.file_list = []
+		self.history_list = None
 	# XServiceInfo
 	def getImplementationName(self):
 		return IMPLE_NAME
@@ -83,64 +81,34 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 		return servicename==SERVICE_NAME
 	def getSupportedServiceNames(self):
 		return (SERVICE_NAME,)		
-	# XDispatchProvider コマンドURLを受け取ってXDispatchを備えたオブジェクトを返す。今回は自身を返している。
-	def queryDispatch(self, url, targetframename, searchflags):
-		if url.Protocol == PROTOCOL:
-			if url.Path == 'ContextSpecificRecentFileList':
-				return self
-		return None
-	def queryDispatches(self, requests):
-		return tuple(self.queryDispatch(i.FeatureURL, i.FrameName, i.SearchFlags) for i in requests)
-	# XContainerListener
-	def elementInserted(self, ev):
-		self.list_changed = True
-		self.unregister_listener()
-	
-	def elementRemoved(self, ev):
-		self.list_changed = True
-		self.unregister_listener()
-	
-	def elementReplaced(self, ev):
-		self.list_changed = True
-		self.unregister_listener()
-	
 	# XStatusListener
-	def statusChanged(self, state):
-		"""This menu is always enabled."""
+	def statusChanged(self, state):  # メニュー項目のチェックボックスなどの把握のため?
 		pass
+	def disposing(self, eventobject):
+		eventobject.Source.removeMenuListener(self)		
 	
-	def disposing(self, ev):
-		if ev.Source == self.frame:
-			#print "pmc: disposing"
-			try:
-				self.unregister_listener()
-				##self.menu = None # crash
-				self.ctx = None
-				self.frame = None
-				self.file_list = []
-				self.history_list = None
-			except Exception as e:
-				print(e)
 	
+	
+
 	# XPopupMenuController
-	def setPopupMenu(self, menu):
-		"""Set content of the popup menu passed by the factory."""
-		if not self.frame: return
-		if not menu: return
-		
-		self.menu = menu # keep the menu
-		try:
-			self.fill_menu()
-		except Exception as e:
-			print(e)
-			return
-		# add menu listener
-		if self.menu:
-			self.menu.addMenuListener(self)
-		# adds container listener
-		#self.register_listener()
-	
-	
+	def setPopupMenu(self, popupmenu):  # ポップアップメニューを作成。引数はcom.sun.star.awt.PopupMenu。
+		filterlist = self.filterlist
+		uriabbreviation = self.uriabbreviation
+		stringwidth = StringWidth()
+		picklist = self.configreader('/org.openoffice.Office.Histories/Histories/PickList')
+		itemlist, orderlist = picklist.getPropertyValues(("ItemList", "OrderList"))  # ItemListからTitleとFilterが取得できるが順序は保存されていない。順序はOrderListから取得する。
+		for i in orderlist:  # oor:name="HistoryOrder"には古い順から番号が入っている。
+			fileurl = orderlist[i]  # fileurlが返る。
+			filtername = itemlist[fileurl]["Filter"]
+			if filtername in filterlist:
+				abbreviatefileurl = uriabbreviation.abbreviateString(stringwidth, 46, fileurl)  # 46文字に切り詰める。
+				systempath = unohelper.fileUrlToSystemPath(abbreviatefileurl)
+				popupmenu.insertItem(i+1, '~{}: {}'.format(i, systempath), 0, i)
+				popupmenu.setTipHelpText(i+1, systempath)
+				
+		 # 一つもなかったとき。
+				
+		popupmenu.addMenuListener(MenuListener())
 	def updatePopupMenu(self):
 		"""updatePopupMenu call."""
 		#print "update pm"
@@ -158,9 +126,9 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 		reader = get_configreader(self.ctx, Node_Common_History)
 		return reader.getByName('PickListSize')
 	
-	def __get_history_reader(self):
-		"""Get ConfigurationAccess of the History nodepath."""
-		return get_configreader(self.ctx, Node_History)
+# 	def __get_history_reader(self):
+# 		"""Get ConfigurationAccess of the History nodepath."""
+# 		return get_configreader(self.ctx, Node_History)
 	
 	# if the listener added to the "List" container, 
 	# inserted event called "Size" times.
@@ -264,21 +232,6 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 	abbreviation = staticmethod(abbreviation)
 	
 
-	# XMenuListener
-	def itemHighlighted(self, ev):
-		pass
-	def itemActivated(self, ev):
-		pass
-	def itemDeactivated(self, ev):
-		pass
-	def itemSelected(self, ev):
-		menu_id = ev.MenuId
-		if menu_id <= 0: return
-		try:
-			if self.file_list:# and len(self.file_list) < menu_id -1:
-				self.open_file( self.file_list[menu_id -1] )
-		except Exception as e:
-			print(e)
 	
 	def open_file(self,entry):
 		"""Open file with dispatch."""
@@ -304,11 +257,69 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 		
 		if disp:
 			disp.dispatch(url,args)
-
-
+			
+			
 class string_width(unohelper.Base, XStringWidth):
+	def queryStringWidth(self, string):
+		return len(string)
+class ContainerListener(unohelper.Base, XContainerListener):
+	def __init__(self): 
+		pass
+	def elementInserted(self, containerevent):
+		self.list_changed = True
+		self.unregister_listener()
+	def elementRemoved(self, containerevent):
+		self.list_changed = True
+		self.unregister_listener()
+	def elementReplaced(self, containerevent):
+		self.list_changed = True
+		self.unregister_listener()	
+	def disposing(self, eventobject):
+		eventobject.Source.removeMenuListener(self)	
+class MenuListener(unohelper.Base, XMenuListener):
+	def __init__(self, ctx, frame, file_list): 
+		self.file_list = file_list
+		self.frame = frame
+		self.ctx = ctx
+	def itemHighlighted(self, menuevent):
+		pass
+	def itemSelected(self, menuevent):
+		menu_id = menuevent.MenuId
+# 		if menu_id>0 and self.file_list and self.frame:
+# 			open_file(self.ctx, self.file_list[menu_id-1])
+	def itemActivated(self, menuevent):
+		pass
+	def itemDeactivated(self, menuevent):
+		pass   
+	def disposing(self, eventobject):
+		eventobject.Source.removeMenuListener(self)	
+class StatusListener(unohelper.Base, XStatusListener):
+	def statusChanged(self, state):
+		pass	
+	def disposing(self, eventobject):
+		eventobject.Source.removeMenuListener(self)		
+class StringWidth(unohelper.Base, XStringWidth):
 	def queryStringWidth(self,string):
 		return len(string)
+def createConfigReader(ctx, smgr):  # ConfigurationProviderサービスのインスタンスを受け取る高階関数。
+	configurationprovider = smgr.createInstanceWithContext("com.sun.star.configuration.ConfigurationProvider", ctx)  # ConfigurationProviderの取得。
+	def configReader(path):  # ConfigurationAccessサービスのインスタンスを返す関数。
+		node = PropertyValue(Name="nodepath", Value=path)
+		return configurationprovider.createInstanceWithArguments("com.sun.star.configuration.ConfigurationAccess", (node,))
+	return configReader
+def getFilterList(configreader, moduleidentifier):
+	filterlist = []
+	filters = configreader("/org.openoffice.TypeDetection.Filter/Filters")  # org.openoffice.TypeDetectionパンケージのTypesコンポーネントのTypesノードを根ノードにする。
+	for filtername in filters:  # 各子ノード名について。
+		filternode = filters[filtername]  # 子ノードを取得。
+		if "DocumentService" in filternode:
+			if filternode["DocumentService"]==moduleidentifier:
+				filterlist.append(filtername)
+	return filterlist		
+
+
+
+
 
 
 def create_general_history(reader):
@@ -468,5 +479,4 @@ def get_configreader(ctx,node):
 # 	AnotherRecentFilesPopupMenuController,
 # 	IMPL_NAME,
 # 	(SERVICE_NAME,),)
-
 
