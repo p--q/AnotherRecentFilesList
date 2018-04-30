@@ -105,11 +105,12 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 				systempath = unohelper.fileUrlToSystemPath(abbreviatefileurl)
 				popupmenu.insertItem(i+1, '~{}: {}'.format(i, systempath), 0, i)
 				popupmenu.setTipHelpText(i+1, systempath)
-				
-		 # 一つもなかったとき。
-# 			self.menu.insertItem(1, '~No Documents.',0,1)
-# 			self.menu.enableItem(1, False)		
-		popupmenu.addMenuListener(MenuListener())
+		if popupmenu.getItemCount()>0:  
+			picklist.addContainerListener(ContainerListener())
+			popupmenu.addMenuListener(MenuListener())
+		else:	
+			popupmenu.insertItem(1, '~No Documents.', 0, 1)
+			popupmenu.enableItem(1, False)		
 	def updatePopupMenu(self):
 		"""updatePopupMenu call."""
 		#print "update pm"
@@ -207,30 +208,7 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 		except Exception as e:
 			print(e)
 	
-	# static method
-	def abbreviation(url, length, pathsep="/"):
-		"""Abbreviate file path."""
-		if len(url) <= length: return url
-		
-		parts = url.split(pathsep)
-		
-		while len(parts) > 3:
-			if len(parts) <= 3:
-				return pathsep.join(parts)
-			
-			l = len(parts) / 2
-			del parts[l]
-			if sum([len(p) for p in parts]) <= length:
-				l = len(parts) / 2
-				parts.insert(l+1,"...")
-				return pathsep.join(parts)
-		
-		if len(parts) == 3 and sum([len(p) for p in parts]) > length:
-			parts[1] = ''.join((parts[1][0:7], '...'))
-		
-		return pathsep.join(parts)
-	
-	abbreviation = staticmethod(abbreviation)
+
 	
 
 	
@@ -309,6 +287,10 @@ def createConfigReader(ctx, smgr):  # ConfigurationProviderサービスのイン
 		return configurationprovider.createInstanceWithArguments("com.sun.star.configuration.ConfigurationAccess", (node,))
 	return configReader
 def getFilterList(configreader, moduleidentifier):
+	
+	# ジェラルモジュールの時
+	
+	
 	filterlist = []
 	filters = configreader("/org.openoffice.TypeDetection.Filter/Filters")  # org.openoffice.TypeDetectionパンケージのTypesコンポーネントのTypesノードを根ノードにする。
 	for filtername in filters:  # 各子ノード名について。
