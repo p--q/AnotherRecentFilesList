@@ -6,7 +6,7 @@ import glob
 import os
 import shutil
 import sys
-from itertools import chain
+# from itertools import chain
 def createOXT(c):
 	oxtf = os.path.join(c["src_path"], "..", "oxt")  # oxtフォルダの絶対パスの取得。
 	if not os.path.exists(oxtf):  # oxtフォルダがなければ作成する。

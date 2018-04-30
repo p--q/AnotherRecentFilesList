@@ -1,4 +1,4 @@
-#!/opt/libreoffice5.2/program/python
+#!/opt/libreoffice5.4/program/python
 # -*- coding: utf-8 -*-
 IMPLE_NAME = "mytools.frame.ContextSpecificRecentFileList"
 SERVICE_NAME = "com.sun.star.frame.PopupMenuController"

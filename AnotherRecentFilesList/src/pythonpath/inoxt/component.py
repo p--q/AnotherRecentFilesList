@@ -1,20 +1,13 @@
-#!
-# -*- coding: utf_8 -*-
-
+#!/opt/libreoffice5.4/program/python
+# -*- coding: utf-8 -*-
 import uno
 import unohelper
-
-#from sets import Set
 
 from os import sep
 if sep == '\\':
 	from urllib.parse import unquote
-	# on the Windows environment,
-	# there are problems about URL -> SystemPath conversion using 
-	# uno.fileUrlToSystemPath and URL abbreviation with .util.UriAbbreviation service.
-	# So, conversion from URL to system path is done by the unquote function and
-	# abbreviation of the URL is done by herself.
-
+	
+	
 from com.sun.star.beans import PropertyValue  # Struct
 from com.sun.star.util import XStringWidth
 from com.sun.star.awt import XMenuListener
@@ -23,40 +16,39 @@ from com.sun.star.lang import XInitialization, XServiceInfo
 from com.sun.star.container import XContainerListener
 from com.sun.star.util import XStringAbbreviation
 from com.sun.star.util import URL  # Struct
-
-
-Protocol = 'mytools.frame:'
-Menu_Path = 'ContextSpecificRecentFileList'
-IMPL_NAME = 'mytools.frame.ContextSpecificRecentFileList'
-SERVICE_NAME = 'com.sun.star.frame.PopupMenuController'
+PROTOCOL = 'mytools.frame:'
+# Menu_Path = 'ContextSpecificRecentFileList'
+# IMPL_NAME = 'mytools.frame.ContextSpecificRecentFileList'
+# SERVICE_NAME = 'com.sun.star.frame.PopupMenuController'
 
 Node_History = '/org.openoffice.Office.Histories/Histories'
 Node_Common_History = '/org.openoffice.Office.Common/History'
 
 Mod_StartModule = 'com.sun.star.frame.StartModule'
 Mod_BasicIDE = 'com.sun.star.script.BasicIDE'
-Mod_Chart2 = 'com.sun.star.chart2.ChartDocument'
+# Mod_Chart2 = 'com.sun.star.chart2.ChartDocument'
 Mod_Global = 'com.sun.star.text.GlobalDocument'
 Mod_Text = 'com.sun.star.text.TextDocument'
 Mod_Database = 'com.sun.star.sdb.OfficeDatabaseDocument'
-Mod_Spreadsheet = 'com.sun.star.SpreadsheetDocument'
+# Mod_Spreadsheet = 'com.sun.star.SpreadsheetDocument'
 #Mod_Formular = "com.sun.star.formula.FormularProperties"
 #Mod_Formula = "com.sun.star.formula.FormulaProperties"
 
-Mod_sdb_prefix = 'com.sun.star.sdb'
+# Mod_sdb_prefix = 'com.sun.star.sdb'
 
 
-
-class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController, XDispatchProvider, XMenuListener,XContainerListener,XServiceInfo):
-	""" PopupMenuController implemenation """
-
-	def __init__(self, ctx, *args):
-		"""Initialization of the popupmenu controller.
-		
-		PopumuMenuController implemented by Py-UNO is instantiated with __init__ function 
-		not initialize method of css.lang.XInitialization interface.
-		"""
-		#args are .beans.PropertyValue|s. Frame, CommandURL and ModuleName
+IMPLE_NAME = None
+SERVICE_NAME = None
+def create(ctx, *args, imple_name, service_name):
+	global IMPLE_NAME
+	global SERVICE_NAME
+	if IMPLE_NAME is None:
+		IMPLE_NAME = imple_name 
+	if SERVICE_NAME is None:
+		SERVICE_NAME = service_name
+	return AnotherRecentFilesPopupMenuController(ctx, *args)
+class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController, XDispatchProvider, XMenuListener, XContainerListener, XServiceInfo):
+	def __init__(self, ctx, *propertyvalues):  # argsはPropertyValueのタプル。
 		self.ctx = ctx
 		self.frame = None # frame of the document
 		self.modname = "" # module name
@@ -65,56 +57,40 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 		self.file_list = []
 		self.menu = None
 		self.history_list = None
-		if args:
-			self.initialize(args)
+		if propertyvalues:
+			self.initialize(propertyvalues)
 		if self.frame:
 			self.frame.addEventListener(self)
-	
 	# XInitialization
-	def initialize(self, args):
-		for arg in args:
-			
-			if arg.Name == 'Frame':
-				self.frame = arg.Value
-				
-			elif arg.Name == 'ModuleIdentifier':
-				#self.modname = arg.Value
-				if arg.Value.startswith(Mod_sdb_prefix):
-					# all database modules as OfficeDatabaseDocument
+	def initialize(self, propertyvalues):
+		for propertyvalue in propertyvalues:
+			name, value = propertyvalue.Name, propertyvalue.Value
+			if name=='Frame':
+				self.frame = value
+			elif name=='ModuleIdentifier':
+				if value.startswith('com.sun.star.sdb'):
 					self.modname = Mod_Database
-				elif arg.Value == Mod_Chart2:
-					self.modname = Mod_Spreadsheet
+				elif value=='com.sun.star.chart2.ChartDocument':
+					self.modname = 'com.sun.star.SpreadsheetDocument'
 				else:
-					self.modname = arg.Value
-				
-			elif arg.Name == 'CommandURL':
-				self.command = arg.Value
-	
-	
-	# XServiceInfo interface is used to identify the component.
-	def supportsService(self, name):
-		return (name == SERVICE_NAME)
+					self.modname = value
+			elif name=='CommandURL':
+				self.command = value
+	# XServiceInfo
 	def getImplementationName(self):
-		return IMPL_NAME
+		return IMPLE_NAME
+	def supportsService(self, servicename):
+		return servicename==SERVICE_NAME
 	def getSupportedServiceNames(self):
-		return (SERVICE_NAME,)
-	
-	
-	# XDispatchProvider
-	def queryDispatch(self, url, name, flag):
-		#print "pmc: querydispatch...",url.Complete
-		if url.Protocol == Protocol:
-			if url.Path == Menu_Path:
+		return (SERVICE_NAME,)		
+	# XDispatchProvider コマンドURLを受け取ってXDispatchを備えたオブジェクトを返す。今回は自身を返している。
+	def queryDispatch(self, url, targetframename, searchflags):
+		if url.Protocol == PROTOCOL:
+			if url.Path == 'ContextSpecificRecentFileList':
 				return self
 		return None
-	
-	def queryDispatches(self, args):
-		disps = []
-		for arg in args:
-			disps.append(
-				self.queryDispatch(arg.FeatureURL,arg.FrameName,arg.SearchFlags))
-		return tuple(disps)
-	
+	def queryDispatches(self, requests):
+		return tuple(self.queryDispatch(i.FeatureURL, i.FrameName, i.SearchFlags) for i in requests)
 	# XContainerListener
 	def elementInserted(self, ev):
 		self.list_changed = True
@@ -232,23 +208,23 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 		sw = string_width()
 		
 		urlStr = 'URL'
-		entries = []
+# 		entries = []
 		#print"..."
 		try:
 			if sep == "\\":
-			
+
 				for i, v in enumerate(self.file_list):
-				
+
 					if v[urlStr].startswith('file:///'):
 						syspath = self.abbreviation(str(unquote(v[urlStr].encode('ascii')),'utf8')[8:].replace('/','\\'), 46, '\\')
 					else:
-					
+
 						syspath = ua.abbreviateString(sw,46,v[urlStr])
 					label = '~%s: %s' % (i+1, syspath)
-				
+
 					self.menu.insertItem(i+1,label,0,i)
 					self.menu.setTipHelpText(i+1, v[urlStr])
-		
+
 			else:
 				for i, v in enumerate(self.file_list):
 					if v[urlStr].startswith('file:///'):
@@ -256,7 +232,7 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 					else:
 						syspath = ua.abbreviateString(sw,46,v[urlStr])
 					label = '~%s: %s' % (i+1, syspath)
-					
+
 					self.menu.insertItem(i+1, label, 0, i)
 					self.menu.setTipHelpText(i+1, v[urlStr])
 		except Exception as e:
@@ -487,10 +463,10 @@ def get_configreader(ctx,node):
 	return cra
 
 
-g_ImplementationHelper = unohelper.ImplementationHelper()
-g_ImplementationHelper.addImplementation(
-	AnotherRecentFilesPopupMenuController,
-	IMPL_NAME,
-	(SERVICE_NAME,),)
+# g_ImplementationHelper = unohelper.ImplementationHelper()
+# g_ImplementationHelper.addImplementation(
+# 	AnotherRecentFilesPopupMenuController,
+# 	IMPL_NAME,
+# 	(SERVICE_NAME,),)
 
 
