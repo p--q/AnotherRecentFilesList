@@ -107,7 +107,8 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 				popupmenu.setTipHelpText(i+1, systempath)
 				
 		 # 一つもなかったとき。
-				
+# 			self.menu.insertItem(1, '~No Documents.',0,1)
+# 			self.menu.enableItem(1, False)		
 		popupmenu.addMenuListener(MenuListener())
 	def updatePopupMenu(self):
 		"""updatePopupMenu call."""
