@@ -8,46 +8,50 @@ import unohelper
 
 from os import sep
 if sep == '\\':
-	from urllib.parse import unquote
+	from urllib import unquote
 	# on the Windows environment,
 	# there are problems about URL -> SystemPath conversion using 
 	# uno.fileUrlToSystemPath and URL abbreviation with .util.UriAbbreviation service.
 	# So, conversion from URL to system path is done by the unquote function and
 	# abbreviation of the URL is done by herself.
 
-from com.sun.star.beans import PropertyValue  # Struct
+from com.sun.star.beans import PropertyValue
 from com.sun.star.util import XStringWidth
 from com.sun.star.awt import XMenuListener
-from com.sun.star.frame import XPopupMenuController, XDispatchProvider, XStatusListener, XDispatch
+from com.sun.star.frame import XPopupMenuController, XDispatchProvider, \
+	XStatusListener, XDispatch
 from com.sun.star.lang import XInitialization, XServiceInfo
 from com.sun.star.container import XContainerListener
 from com.sun.star.util import XStringAbbreviation
-from com.sun.star.util import URL  # Struct
+from com.sun.star.util import URL
 
 
-Protocol = 'mytools.frame:'
-Menu_Path = 'ContextSpecificRecentFileList'
-IMPL_NAME = 'mytools.frame.ContextSpecificRecentFileList'
-SERVICE_NAME = 'com.sun.star.frame.PopupMenuController'
+Protocol = u'mytools.frame:'
+Menu_Path = u'ContextSpecificRecentFileList'
+IMPL_NAME = u'mytools.frame.ContextSpecificRecentFileList'
+SERVICE_NAME = u'com.sun.star.frame.PopupMenuController'
 
-Node_History = '/org.openoffice.Office.Histories/Histories'
+Node_History = u'/org.openoffice.Office.Histories/Histories'
 Node_Common_History = '/org.openoffice.Office.Common/History'
 
-Mod_StartModule = 'com.sun.star.frame.StartModule'
-Mod_BasicIDE = 'com.sun.star.script.BasicIDE'
-Mod_Chart2 = 'com.sun.star.chart2.ChartDocument'
-Mod_Global = 'com.sun.star.text.GlobalDocument'
-Mod_Text = 'com.sun.star.text.TextDocument'
-Mod_Database = 'com.sun.star.sdb.OfficeDatabaseDocument'
-Mod_Spreadsheet = 'com.sun.star.SpreadsheetDocument'
+Mod_StartModule = u'com.sun.star.frame.StartModule'
+Mod_BasicIDE = u'com.sun.star.script.BasicIDE'
+Mod_Chart2 = u'com.sun.star.chart2.ChartDocument'
+Mod_Global = u'com.sun.star.text.GlobalDocument'
+Mod_Text = u'com.sun.star.text.TextDocument'
+Mod_Database = u'com.sun.star.sdb.OfficeDatabaseDocument'
+Mod_Spreadsheet = u'com.sun.star.SpreadsheetDocument'
 #Mod_Formular = "com.sun.star.formula.FormularProperties"
 #Mod_Formula = "com.sun.star.formula.FormulaProperties"
 
-Mod_sdb_prefix = 'com.sun.star.sdb'
+Mod_sdb_prefix = u'com.sun.star.sdb'
 
 
 
-class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController, XDispatchProvider, XMenuListener,XContainerListener,XServiceInfo):
+class AnotherRecentFilesPopupMenuController(unohelper.Base,
+	XPopupMenuController,
+	XDispatchProvider,
+	XMenuListener,XContainerListener,XServiceInfo):
 	""" PopupMenuController implemenation """
 
 	def __init__(self, ctx, *args):
@@ -77,7 +81,7 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 			if arg.Name == 'Frame':
 				self.frame = arg.Value
 				
-			elif arg.Name == 'ModuleIdentifier':
+			elif arg.Name == 'ModuleName':
 				#self.modname = arg.Value
 				if arg.Value.startswith(Mod_sdb_prefix):
 					# all database modules as OfficeDatabaseDocument
@@ -143,8 +147,8 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 				self.frame = None
 				self.file_list = []
 				self.history_list = None
-			except Exception as e:
-				print(e)
+			except Exception,e:
+				print e
 	
 	# XPopupMenuController
 	def setPopupMenu(self, menu):
@@ -155,8 +159,8 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 		self.menu = menu # keep the menu
 		try:
 			self.fill_menu()
-		except Exception as e:
-			print(e)
+		except Exception,e:
+			print e
 			return
 		# add menu listener
 		if self.menu:
@@ -174,8 +178,8 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 				self.fill_menu()
 				self.register_listener()
 			self.list_changed = False
-		except Exception as e:
-			print(e)
+		except Exception,e:
+			print e
 	
 	
 	def _get_pick_list_size(self):
@@ -192,7 +196,7 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 		"""Adds listener to the list."""
 		reader = self.__get_history_reader()
 		
-		hist_list = reader.getPropertyValue('PickList')
+		hist_list = reader.getPropertyValue(u'PickList')
 		hist_list.addContainerListener(self)
 		self.history_list = hist_list
 	
@@ -239,12 +243,12 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 			
 				for i, v in enumerate(self.file_list):
 				
-					if v[urlStr].startswith('file:///'):
-						syspath = self.abbreviation(str(unquote(v[urlStr].encode('ascii')),'utf8')[8:].replace('/','\\'), 46, '\\')
+					if v[urlStr].startswith(u'file:///'):
+						syspath = self.abbreviation(unicode(unquote(v[urlStr].encode('ascii')),'utf8')[8:].replace('/','\\'), 46, '\\')
 					else:
 					
 						syspath = ua.abbreviateString(sw,46,v[urlStr])
-					label = '~%s: %s' % (i+1, syspath)
+					label = u'~%s: %s' % (i+1, syspath)
 				
 					self.menu.insertItem(i+1,label,0,i)
 					self.menu.setTipHelpText(i+1, v[urlStr])
@@ -281,7 +285,7 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 				return pathsep.join(parts)
 		
 		if len(parts) == 3 and sum([len(p) for p in parts]) > length:
-			parts[1] = ''.join((parts[1][0:7], '...'))
+			parts[1] = u''.join((parts[1][0:7], u'...'))
 		
 		return pathsep.join(parts)
 	
@@ -289,42 +293,43 @@ class AnotherRecentFilesPopupMenuController(unohelper.Base, XPopupMenuController
 	
 
 	# XMenuListener
-	def itemHighlighted(self, ev):
+	def hihglight(self, ev):
 		pass
-	def itemActivated(self, ev):
+	def activate(self, ev):
 		pass
-	def itemDeactivated(self, ev):
+	def deactivate(self, ev):
 		pass
-	def itemSelected(self, ev):
+	def select(self, ev):
 		menu_id = ev.MenuId
 		if menu_id <= 0: return
 		try:
 			if self.file_list:# and len(self.file_list) < menu_id -1:
 				self.open_file( self.file_list[menu_id -1] )
-		except Exception as e:
-			print(e)
+		except Exception,e:
+			print e
 	
 	def open_file(self,entry):
 		"""Open file with dispatch."""
 		if not self.frame: return
 		url = URL()
-		url.Complete = '.uno:Open'
+		url.Complete = u'.uno:Open'
 		#print entry["URL"],entry["Filter"]
-		transformer = self.ctx.ServiceManager.createInstanceWithContext('com.sun.star.util.URLTransformer', self.ctx)
-		dummy, url = transformer.parseStrict(url)
+		transformer = self.ctx.ServiceManager.createInstanceWithContext(
+			u'com.sun.star.util.URLTransformer', self.ctx)
+		d,url = transformer.parseStrict(url)
 		
-		arg1 = create_PropertyValue('Referer', 'private:user')
-		arg2 = create_PropertyValue('AsTemplate',False)
-		arg3 = create_PropertyValue('FilterName',entry['Filter'])
-		arg4 = create_PropertyValue('SynchronMode',False)
-		arg5 = create_PropertyValue('URL',entry['URL'])
-		arg6 = create_PropertyValue('FrameName','_default')
+		arg1 = create_PropertyValue(u'Referer', u'private:user')
+		arg2 = create_PropertyValue(u'AsTemplate',False)
+		arg3 = create_PropertyValue(u'FilterName',entry[u'Filter'])
+		arg4 = create_PropertyValue(u'SynchronMode',False)
+		arg5 = create_PropertyValue(u'URL',entry[u'URL'])
+		arg6 = create_PropertyValue(u'FrameName',u'_default')
 		args = (arg1,arg2,arg3,arg4,arg5,arg6)
 		
 		desktop = self.ctx.ServiceManager.createInstanceWithContext(
-			'com.sun.star.frame.Desktop', self.ctx)
+			u'com.sun.star.frame.Desktop', self.ctx)
 		
-		disp = desktop.queryDispatch(url,'_self',0)
+		disp = desktop.queryDispatch(url,u'_self',0)
 		
 		if disp:
 			disp.dispatch(url,args)
@@ -337,11 +342,11 @@ class string_width(unohelper.Base, XStringWidth):
 
 def create_general_history(reader):
 	"""History list as normal list."""
-	pk_list = reader.getPropertyValue('PickList')
+	pk_list = reader.getPropertyValue(u'PickList')
 	file_list = []
 	
-	filterName = 'Filter'
-	urlStr = 'URL'
+	filterName = u'Filter'
+	urlStr = u'URL'
 	
 	if pk_list.hasElements():
 		for name in pk_list.getElementNames():
@@ -363,7 +368,7 @@ def create_context_spacific_history(ctx, reader, modname, pick_size):
 	
 	filter_list = get_filter_list(ctx, modname, iFlag, eFlag)
 	
-	if modname not in filter_list:
+	if not filter_list.has_key(modname):
 		return create_general_history(reader)	# not found
 	
 	file_list = []
@@ -389,12 +394,8 @@ def create_context_spacific_history(ctx, reader, modname, pick_size):
 	# complement remains from "List".
 	
 	# PickList keeps Recent Files entries.
-# 	pk_list = reader.getByName('URLHistory')#('PickList')
-	
-	pk_list = reader.getByName('PickList')
-	
-	
-# 	pk_size = pick_size#reader.getPropertyValue(u'PickListSize')
+	pk_list = reader.getByName('URLHistory')#('PickList')
+	pk_size = pick_size#reader.getPropertyValue(u'PickListSize')
 	pk_items = pk_list.getByName('ItemList')
 	pk_order = pk_list.getByName('OrderList')
 	
@@ -424,8 +425,8 @@ def create_context_spacific_history(ctx, reader, modname, pick_size):
 
 
 def get_filter_info(descs):
-	docService = 'DocumentService'
-	filterName = 'Name'
+	docService = u'DocumentService'
+	filterName = u'Name'
 	service = ""
 	name = ""
 	
@@ -444,8 +445,8 @@ def get_filter_list(ctx, mod="", iFlag=0, eFlag=0):
 	filer_list["com.sun.star.sheet.SpreadsheetDocument": ["calc8", "..."], "": ... ]
 	"""
 	ff = ctx.ServiceManager.createInstanceWithContext(
-		'com.sun.star.document.FilterFactory' ,ctx)
-	que = 'getSortedFilterList():module=%s:iflags=%s:eflags=%s' % (mod,iFlag,eFlag)
+		u'com.sun.star.document.FilterFactory' ,ctx)
+	que = u'getSortedFilterList():module=%s:iflags=%s:eflags=%s' % (mod,iFlag,eFlag)
 	filters = ff.createSubSetEnumerationByQuery(que)
 	
 	filter_list = {}
@@ -456,7 +457,7 @@ def get_filter_list(ctx, mod="", iFlag=0, eFlag=0):
 	while filters.hasMoreElements():
 		fl = filters.nextElement()
 		service,name = get_info(fl)
-		if service in filter_list:
+		if filter_list.has_key(service):
 			filter_list[service].append(name)
 		else:
 			filter_list[service] = [name]
@@ -478,7 +479,7 @@ def get_configreader(ctx,node):
 		cp = ctx.ServiceManager.createInstanceWithContext(
 			'com.sun.star.configuration.ConfigurationProvider', ctx)
 		props = PropertyValue()
-		props.Name = 'nodepath'
+		props.Name = u'nodepath'
 		props.Value = node
 		cra = cp.createInstanceWithArguments(
 			'com.sun.star.configuration.ConfigurationAccess', (props,))
